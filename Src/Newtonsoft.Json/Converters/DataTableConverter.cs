@@ -58,7 +58,8 @@ namespace Newtonsoft.Json.Converters
                 {
                     object columnValue = row[column];
 
-                    if (serializer.NullValueHandling == NullValueHandling.Ignore && (columnValue == null || columnValue == DBNull.Value))
+                    if (serializer.NullValueHandling == NullValueHandling.Ignore && (columnValue == null || columnValue == DBNull.Value ||
+                        (columnValue is System.Data.SqlTypes.INullable && ((System.Data.SqlTypes.INullable)columnValue).IsNull)))
                     {
                         continue;
                     }
