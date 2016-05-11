@@ -309,7 +309,7 @@ namespace Newtonsoft.Json.Serialization
 
         internal JsonContract(Type underlyingType)
         {
-            ValidationUtils.ArgumentNotNull(underlyingType, "underlyingType");
+            ValidationUtils.ArgumentNotNull(underlyingType, nameof(underlyingType));
 
             UnderlyingType = underlyingType;
 
@@ -321,36 +321,7 @@ namespace Newtonsoft.Json.Serialization
             IsConvertable = ConvertUtils.IsConvertible(NonNullableUnderlyingType);
             IsEnum = NonNullableUnderlyingType.IsEnum();
 
-            if (NonNullableUnderlyingType == typeof(byte[]))
-            {
-                InternalReadType = ReadType.ReadAsBytes;
-            }
-            else if (NonNullableUnderlyingType == typeof(int))
-            {
-                InternalReadType = ReadType.ReadAsInt32;
-            }
-            else if (NonNullableUnderlyingType == typeof(decimal))
-            {
-                InternalReadType = ReadType.ReadAsDecimal;
-            }
-            else if (NonNullableUnderlyingType == typeof(string))
-            {
-                InternalReadType = ReadType.ReadAsString;
-            }
-            else if (NonNullableUnderlyingType == typeof(DateTime))
-            {
-                InternalReadType = ReadType.ReadAsDateTime;
-            }
-#if !NET20
-            else if (NonNullableUnderlyingType == typeof(DateTimeOffset))
-            {
-                InternalReadType = ReadType.ReadAsDateTimeOffset;
-            }
-#endif
-            else
-            {
-                InternalReadType = ReadType.Read;
-            }
+            InternalReadType = ReadType.Read;
         }
 
         internal void InvokeOnSerializing(object o, StreamingContext context)

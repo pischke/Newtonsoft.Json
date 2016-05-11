@@ -483,7 +483,7 @@ namespace Newtonsoft.Json
         /// <param name="reader">The <see cref="JsonReader"/> to read the token from.</param>
         public void WriteToken(JsonReader reader)
         {
-            WriteToken(reader, true, true, true);
+            WriteToken(reader, true);
         }
 
         /// <summary>
@@ -493,7 +493,7 @@ namespace Newtonsoft.Json
         /// <param name="writeChildren">A flag indicating whether the current token's children should be written.</param>
         public void WriteToken(JsonReader reader, bool writeChildren)
         {
-            ValidationUtils.ArgumentNotNull(reader, "reader");
+            ValidationUtils.ArgumentNotNull(reader, nameof(reader));
 
             WriteToken(reader, writeChildren, true, true);
         }
@@ -508,64 +508,7 @@ namespace Newtonsoft.Json
         /// A null value can be passed to the method for token's that don't have a value, e.g. <see cref="JsonToken.StartObject"/>.</param>
         public void WriteToken(JsonToken token, object value)
         {
-            WriteTokenInternal(token, value);
-        }
-
-        /// <summary>
-        /// Writes the <see cref="JsonToken"/> token.
-        /// </summary>
-        /// <param name="token">The <see cref="JsonToken"/> to write.</param>
-        public void WriteToken(JsonToken token)
-        {
-            WriteTokenInternal(token, null);
-        }
-
-        internal void WriteToken(JsonReader reader, bool writeChildren, bool writeDateConstructorAsDate, bool writeComments)
-        {
-            int initialDepth;
-
-            if (reader.TokenType == JsonToken.None)
-            {
-                initialDepth = -1;
-            }
-            else if (!JsonTokenUtils.IsStartToken(reader.TokenType))
-            {
-                initialDepth = reader.Depth + 1;
-            }
-            else
-            {
-                initialDepth = reader.Depth;
-            }
-
-            WriteToken(reader, initialDepth, writeChildren, writeDateConstructorAsDate, writeComments);
-        }
-
-        internal void WriteToken(JsonReader reader, int initialDepth, bool writeChildren, bool writeDateConstructorAsDate, bool writeComments)
-        {
-            do
-            {
-                // write a JValue date when the constructor is for a date
-                if (writeDateConstructorAsDate && reader.TokenType == JsonToken.StartConstructor && string.Equals(reader.Value.ToString(), "Date", StringComparison.Ordinal))
-                {
-                    WriteConstructorDate(reader);
-                }
-                else
-                {
-                    if (reader.TokenType != JsonToken.Comment || writeComments)
-                    {
-                        WriteTokenInternal(reader.TokenType, reader.Value);
-                    }
-                }
-            } while (
-                // stop if we have reached the end of the token being read
-                initialDepth - 1 < reader.Depth - (JsonTokenUtils.IsEndToken(reader.TokenType) ? 1 : 0)
-                && writeChildren
-                && reader.Read());
-        }
-
-        private void WriteTokenInternal(JsonToken tokenType, object value)
-        {
-            switch (tokenType)
+            switch (token)
             {
                 case JsonToken.None:
                     // read to next
@@ -577,18 +520,18 @@ namespace Newtonsoft.Json
                     WriteStartArray();
                     break;
                 case JsonToken.StartConstructor:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
                     WriteStartConstructor(value.ToString());
                     break;
                 case JsonToken.PropertyName:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
                     WritePropertyName(value.ToString());
                     break;
                 case JsonToken.Comment:
                     WriteComment((value != null) ? value.ToString() : null);
                     break;
                 case JsonToken.Integer:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
 #if !(NET20 || NET35 || PORTABLE || PORTABLE40)
                     if (value is BigInteger)
                     {
@@ -601,7 +544,7 @@ namespace Newtonsoft.Json
                     }
                     break;
                 case JsonToken.Float:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
                     if (value is decimal)
                     {
                         WriteValue((decimal)value);
@@ -620,11 +563,11 @@ namespace Newtonsoft.Json
                     }
                     break;
                 case JsonToken.String:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
                     WriteValue(value.ToString());
                     break;
                 case JsonToken.Boolean:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
                     WriteValue(Convert.ToBoolean(value, CultureInfo.InvariantCulture));
                     break;
                 case JsonToken.Null:
@@ -643,7 +586,7 @@ namespace Newtonsoft.Json
                     WriteEndConstructor();
                     break;
                 case JsonToken.Date:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
 #if !NET20
                     if (value is DateTimeOffset)
                     {
@@ -659,7 +602,7 @@ namespace Newtonsoft.Json
                     WriteRawValue((value != null) ? value.ToString() : null);
                     break;
                 case JsonToken.Bytes:
-                    ValidationUtils.ArgumentNotNull(value, "value");
+                    ValidationUtils.ArgumentNotNull(value, nameof(value));
                     if (value is Guid)
                     {
                         WriteValue((Guid)value);
@@ -670,8 +613,55 @@ namespace Newtonsoft.Json
                     }
                     break;
                 default:
-                    throw MiscellaneousUtils.CreateArgumentOutOfRangeException("TokenType", tokenType, "Unexpected token type.");
+                    throw MiscellaneousUtils.CreateArgumentOutOfRangeException(nameof(token), token, "Unexpected token type.");
             }
+        }
+
+        /// <summary>
+        /// Writes the <see cref="JsonToken"/> token.
+        /// </summary>
+        /// <param name="token">The <see cref="JsonToken"/> to write.</param>
+        public void WriteToken(JsonToken token)
+        {
+            WriteToken(token, null);
+        }
+
+        internal virtual void WriteToken(JsonReader reader, bool writeChildren, bool writeDateConstructorAsDate, bool writeComments)
+        {
+            int initialDepth;
+
+            if (reader.TokenType == JsonToken.None)
+            {
+                initialDepth = -1;
+            }
+            else if (!JsonTokenUtils.IsStartToken(reader.TokenType))
+            {
+                initialDepth = reader.Depth + 1;
+            }
+            else
+            {
+                initialDepth = reader.Depth;
+            }
+
+            do
+            {
+                // write a JValue date when the constructor is for a date
+                if (writeDateConstructorAsDate && reader.TokenType == JsonToken.StartConstructor && string.Equals(reader.Value.ToString(), "Date", StringComparison.Ordinal))
+                {
+                    WriteConstructorDate(reader);
+                }
+                else
+                {
+                    if (writeComments || reader.TokenType != JsonToken.Comment)
+                    {
+                        WriteToken(reader.TokenType, reader.Value);
+                    }
+                }
+            } while (
+                // stop if we have reached the end of the token being read
+                initialDepth - 1 < reader.Depth - (JsonTokenUtils.IsEndToken(reader.TokenType) ? 1 : 0)
+                && writeChildren
+                && reader.Read());
         }
 
         private void WriteConstructorDate(JsonReader reader)
@@ -1437,11 +1427,16 @@ namespace Newtonsoft.Json
         void IDisposable.Dispose()
         {
             Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
-        private void Dispose(bool disposing)
+        /// <summary>
+        /// Releases unmanaged and - optionally - managed resources
+        /// </summary>
+        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing)
         {
-            if (_currentState != State.Closed)
+            if (_currentState != State.Closed && disposing)
             {
                 Close();
             }

@@ -69,7 +69,7 @@ namespace Newtonsoft.Json.Utilities
         {
             // leave this a private to force code to use an explicit overload
             // avoids stack memory being reserved for the object array
-            ValidationUtils.ArgumentNotNull(format, "format");
+            ValidationUtils.ArgumentNotNull(format, nameof(format));
 
             return string.Format(provider, format, args);
         }
@@ -170,12 +170,7 @@ namespace Newtonsoft.Json.Utilities
 
         public static string ToCamelCase(string s)
         {
-            if (string.IsNullOrEmpty(s))
-            {
-                return s;
-            }
-
-            if (!char.IsUpper(s[0]))
+            if (string.IsNullOrEmpty(s) || !char.IsUpper(s[0]))
             {
                 return s;
             }
@@ -184,6 +179,11 @@ namespace Newtonsoft.Json.Utilities
 
             for (int i = 0; i < chars.Length; i++)
             {
+                if (i == 1 && !char.IsUpper(chars[i]))
+                {
+                    break;
+                }
+
                 bool hasNext = (i + 1 < chars.Length);
                 if (i > 0 && hasNext && !char.IsUpper(chars[i + 1]))
                 {

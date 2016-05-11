@@ -286,7 +286,7 @@ namespace Newtonsoft.Json.Utilities
 
                     if (writeBuffer == null || writeBuffer.Length < length)
                     {
-                        writeBuffer = new char[length];
+                        writeBuffer = BufferUtils.EnsureBufferSize(bufferPool, length, writeBuffer);
                     }
 
                     s.CopyTo(lastWritePosition, writeBuffer, 0, length);
@@ -301,11 +301,6 @@ namespace Newtonsoft.Json.Utilities
             {
                 writer.Write(delimiter);
             }
-        }
-
-        public static string ToEscapedJavaScriptString(string value, char delimiter, bool appendDelimiters)
-        {
-            return ToEscapedJavaScriptString(value, delimiter, appendDelimiters, StringEscapeHandling.Default);
         }
 
         public static string ToEscapedJavaScriptString(string value, char delimiter, bool appendDelimiters, StringEscapeHandling stringEscapeHandling)

@@ -318,7 +318,7 @@ namespace Newtonsoft.Json
         /// <param name="reader">The <see cref="JsonReader"/> to read from while validating.</param>
         public JsonValidatingReader(JsonReader reader)
         {
-            ValidationUtils.ArgumentNotNull(reader, "reader");
+            ValidationUtils.ArgumentNotNull(reader, nameof(reader));
             _reader = reader;
             _stack = new Stack<SchemaScope>();
         }
@@ -427,6 +427,30 @@ namespace Newtonsoft.Json
 
             ValidateCurrentToken();
             return d;
+        }
+
+        /// <summary>
+        /// Reads the next JSON token from the stream as a <see cref="Nullable{Double}"/>.
+        /// </summary>
+        /// <returns>A <see cref="Nullable{Double}"/>.</returns>
+        public override double? ReadAsDouble()
+        {
+            double? d = _reader.ReadAsDouble();
+
+            ValidateCurrentToken();
+            return d;
+        }
+
+        /// <summary>
+        /// Reads the next JSON token from the stream as a <see cref="Nullable{Boolean}"/>.
+        /// </summary>
+        /// <returns>A <see cref="Nullable{Boolean}"/>.</returns>
+        public override bool? ReadAsBoolean()
+        {
+            bool? b = _reader.ReadAsBoolean();
+
+            ValidateCurrentToken();
+            return b;
         }
 
         /// <summary>

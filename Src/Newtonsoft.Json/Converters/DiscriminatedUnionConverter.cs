@@ -160,14 +160,14 @@ namespace Newtonsoft.Json.Converters
             JArray fields = null;
 
             // start object
-            ReadAndAssert(reader);
+            reader.ReadAndAssert();
 
             while (reader.TokenType == JsonToken.PropertyName)
             {
                 string propertyName = reader.Value.ToString();
                 if (string.Equals(propertyName, CasePropertyName, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReadAndAssert(reader);
+                    reader.ReadAndAssert();
 
                     Union union = UnionCache.Get(objectType);
 
@@ -182,7 +182,7 @@ namespace Newtonsoft.Json.Converters
                 }
                 else if (string.Equals(propertyName, FieldsPropertyName, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReadAndAssert(reader);
+                    reader.ReadAndAssert();
                     if (reader.TokenType != JsonToken.StartArray)
                     {
                         throw JsonSerializationException.Create(reader, "Union fields must been an array.");
@@ -195,7 +195,7 @@ namespace Newtonsoft.Json.Converters
                     throw JsonSerializationException.Create(reader, "Unexpected property '{0}' found when reading union.".FormatWith(CultureInfo.InvariantCulture, propertyName));
                 }
 
-                ReadAndAssert(reader);
+                reader.ReadAndAssert();
             }
 
             if (caseInfo == null)
@@ -214,7 +214,7 @@ namespace Newtonsoft.Json.Converters
             {
                 if (caseInfo.Fields.Length != fields.Count)
                 {
-                    throw JsonSerializationException.Create(reader, "The number of field values does not match the number of properties definied by union '{0}'.".FormatWith(CultureInfo.InvariantCulture, caseName));
+                    throw JsonSerializationException.Create(reader, "The number of field values does not match the number of properties defined by union '{0}'.".FormatWith(CultureInfo.InvariantCulture, caseName));
                 }
 
                 for (int i = 0; i < fields.Count; i++)
@@ -273,14 +273,6 @@ namespace Newtonsoft.Json.Converters
             }
 
             return (bool)FSharpUtils.IsUnion(null, objectType, null);
-        }
-
-        private static void ReadAndAssert(JsonReader reader)
-        {
-            if (!reader.Read())
-            {
-                throw JsonSerializationException.Create(reader, "Unexpected end when reading union.");
-            }
         }
     }
 }

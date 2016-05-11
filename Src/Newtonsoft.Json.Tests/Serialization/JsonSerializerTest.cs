@@ -96,6 +96,45 @@ namespace Newtonsoft.Json.Tests.Serialization
     [TestFixture]
     public class JsonSerializerTest : TestFixtureBase
     {
+        public class ErroringClass
+        {
+            public DateTime Tags { get; set; }
+        }
+
+        [Test]
+        public void DontCloseInputOnDeserializeError()
+        {
+            using (var s = System.IO.File.OpenRead("large.json"))
+            {
+                try
+                {
+                    using (JsonTextReader reader = new JsonTextReader(new StreamReader(s)))
+                    {
+                        reader.SupportMultipleContent = true;
+                        reader.CloseInput = false;
+
+                        // read into array
+                        reader.Read();
+
+                        var ser = new JsonSerializer();
+                        ser.CheckAdditionalContent = false;
+
+                        ser.Deserialize<IList<ErroringClass>>(reader);
+                    }
+
+                    Assert.Fail();
+                }
+                catch (Exception)
+                {
+                    Assert.IsTrue(s.Position > 0);
+
+                    s.Seek(0, SeekOrigin.Begin);
+
+                    Assert.AreEqual(0, s.Position);
+                }
+            }
+        }
+
         public interface ISubclassBase
         {
             int ID { get; set; }
@@ -212,6 +251,114 @@ namespace Newtonsoft.Json.Tests.Serialization
 
             Assert.AreEqual(1418924498000, initialTicks);
             Assert.AreEqual(8, d.Offset.Hours);
+        }
+#endif
+
+        [Test]
+        public void DeserializeBoolean_Null()
+        {
+            ExceptionAssert.Throws<JsonSerializationException>(
+                () => JsonConvert.DeserializeObject<IList<bool>>(@"[null]"),
+                "Error converting value {null} to type 'System.Boolean'. Path '[0]', line 1, position 5.");
+        }
+
+        [Test]
+        public void DeserializeBoolean_DateTime()
+        {
+            ExceptionAssert.Throws<JsonReaderException>(
+                () => JsonConvert.DeserializeObject<IList<bool>>(@"['2000-12-20T10:55:55Z']"),
+                "Could not convert string to boolean: 2000-12-20T10:55:55Z. Path '[0]', line 1, position 23.");
+        }
+
+        [Test]
+        public void DeserializeBoolean_BadString()
+        {
+            ExceptionAssert.Throws<JsonReaderException>(
+                () => JsonConvert.DeserializeObject<IList<bool>>(@"['pie']"),
+                @"Could not convert string to boolean: pie. Path '[0]', line 1, position 6.");
+        }
+
+        [Test]
+        public void DeserializeBoolean_EmptyString()
+        {
+            ExceptionAssert.Throws<JsonSerializationException>(
+                () => JsonConvert.DeserializeObject<IList<bool>>(@"['']"),
+                @"Error converting value {null} to type 'System.Boolean'. Path '[0]', line 1, position 3.");
+        }
+
+#if !(PORTABLE || PORTABLE40 || NET35 || NET20)
+        [Test]
+        public void DeserializeBooleans()
+        {
+            IList<bool> l = JsonConvert.DeserializeObject<IList<bool>>(@"[
+  1,
+  0,
+  1.1,
+  0.0,
+  0.000000000001,
+  9999999999,
+  -9999999999,
+  9999999999999999999999999999999999999999999999999999999999999999999999,
+  -9999999999999999999999999999999999999999999999999999999999999999999999,
+  'true',
+  'TRUE',
+  'false',
+  'FALSE'
+]");
+
+            int i = 0;
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+        }
+
+        [Test]
+        public void DeserializeNullableBooleans()
+        {
+            IList<bool?> l = JsonConvert.DeserializeObject<IList<bool?>>(@"[
+  1,
+  0,
+  1.1,
+  0.0,
+  0.000000000001,
+  9999999999,
+  -9999999999,
+  9999999999999999999999999999999999999999999999999999999999999999999999,
+  -9999999999999999999999999999999999999999999999999999999999999999999999,
+  'true',
+  'TRUE',
+  'false',
+  'FALSE',
+  '',
+  null
+]");
+
+            int i = 0;
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(true, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(false, l[i++]);
+            Assert.AreEqual(null, l[i++]);
+            Assert.AreEqual(null, l[i++]);
         }
 #endif
 
@@ -377,6 +524,10 @@ namespace Newtonsoft.Json.Tests.Serialization
         [Test]
         public void IncompleteContainers()
         {
+            ExceptionAssert.Throws<JsonSerializationException>(
+                 () => JsonConvert.DeserializeObject<IList<object>>("[1,"),
+                 "Unexpected end when deserializing array. Path '[0]', line 1, position 3.");
+
             ExceptionAssert.Throws<JsonSerializationException>(
                 () => JsonConvert.DeserializeObject<IList<int>>("[1,"),
                 "Unexpected end when deserializing array. Path '[0]', line 1, position 3.");
@@ -782,6 +933,14 @@ namespace Newtonsoft.Json.Tests.Serialization
             Assert.AreEqual("2", s[1]);
         }
 #endif
+
+        [Test]
+        public void DeserializeBoolAsStringInDictionary()
+        {
+            Dictionary<string, string> d = JsonConvert.DeserializeObject<Dictionary<string, string>>("{\"Test1\":false}");
+            Assert.AreEqual(1, d.Count);
+            Assert.AreEqual("false", d["Test1"]);
+        }
 
 #if !NET20
         [Test]
@@ -3712,9 +3871,9 @@ Path '', line 1, position 1.");
         {
             string json = @"[]";
 
-            ExceptionAssert.Throws<JsonSerializationException>(() => { JsonConvert.DeserializeObject<double>(json); }, @"Cannot deserialize the current JSON array (e.g. [1,2,3]) into type 'System.Double' because the type requires a JSON primitive value (e.g. string, number, boolean, null) to deserialize correctly.
-To fix this error either change the JSON to a JSON primitive value (e.g. string, number, boolean, null) or change the deserialized type to an array or a type that implements a collection interface (e.g. ICollection, IList) like List<T> that can be deserialized from a JSON array. JsonArrayAttribute can also be added to the type to force it to deserialize from a JSON array.
-Path '', line 1, position 1.");
+            ExceptionAssert.Throws<JsonReaderException>(
+                () => { JsonConvert.DeserializeObject<double>(json); },
+                @"Unexpected character encountered while parsing value: [. Path '', line 1, position 1.");
         }
 
 #if !(NET35 || NET20 || PORTABLE40)
@@ -6688,20 +6847,20 @@ Path '', line 1, position 1.");
             serializer.TypeNameHandling = TypeNameHandling.All;
 
             byte[] objectBytes;
-            using (MemoryStream bsonStream = new MemoryStream())
-            using (JsonWriter bsonWriter = new JsonTextWriter(new StreamWriter(bsonStream)))
+            using (MemoryStream stream = new MemoryStream())
+            using (JsonWriter jsonWriter = new JsonTextWriter(new StreamWriter(stream)))
             {
-                serializer.Serialize(bsonWriter, test);
-                bsonWriter.Flush();
+                serializer.Serialize(jsonWriter, test);
+                jsonWriter.Flush();
 
-                objectBytes = bsonStream.ToArray();
+                objectBytes = stream.ToArray();
             }
 
-            using (MemoryStream bsonStream = new MemoryStream(objectBytes))
-            using (JsonReader bsonReader = new JsonTextReader(new StreamReader(bsonStream)))
+            using (MemoryStream stream = new MemoryStream(objectBytes))
+            using (JsonReader jsonReader = new JsonTextReader(new StreamReader(stream)))
             {
                 // Get exception here
-                TestObject newObject = (TestObject)serializer.Deserialize(bsonReader);
+                TestObject newObject = (TestObject)serializer.Deserialize(jsonReader);
 
                 Assert.AreEqual("Test", newObject.Name);
                 CollectionAssert.AreEquivalent(new byte[] { 72, 63, 62, 71, 92, 55 }, newObject.Data);
@@ -6857,6 +7016,70 @@ Path '', line 1, position 1.");
             Assert.AreEqual(d1[0], d2[0]);
         }
 
+        internal class HasByteArray
+        {
+            public byte[] EncryptedPassword { get; set; }
+        }
+
+        [Test]
+        public void DeserializeByteArrayWithTypeName()
+        {
+            string json = @"{
+  ""$type"": ""Newtonsoft.Json.Tests.Serialization.JsonSerializerTest+HasByteArray, Newtonsoft.Json.Tests"",
+  ""EncryptedPassword"": {
+    ""$type"": ""System.Byte[], mscorlib"",
+    ""$value"": ""cGFzc3dvcmQ=""
+  }
+}";
+            HasByteArray value = JsonConvert.DeserializeObject<HasByteArray>(json, new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Objects
+            });
+
+            CollectionAssert.AreEquivalent(Convert.FromBase64String("cGFzc3dvcmQ="), value.EncryptedPassword);
+        }
+
+        [Test]
+        public void DeserializeByteArrayWithTypeName_BadAdditionalContent()
+        {
+            string json = @"{
+  ""$type"": ""Newtonsoft.Json.Tests.Serialization.JsonSerializerTest+HasByteArray, Newtonsoft.Json.Tests"",
+  ""EncryptedPassword"": {
+    ""$type"": ""System.Byte[], mscorlib"",
+    ""$value"": ""cGFzc3dvcmQ="",
+    ""$value"": ""cGFzc3dvcmQ=""
+  }
+}";
+
+            ExceptionAssert.Throws<JsonReaderException>(() =>
+            {
+                JsonConvert.DeserializeObject<HasByteArray>(json, new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Objects
+                });
+            }, "Error reading bytes. Unexpected token: PropertyName. Path 'EncryptedPassword.$value', line 6, position 13.");
+        }
+
+        [Test]
+        public void DeserializeByteArrayWithTypeName_ExtraProperty()
+        {
+            string json = @"{
+  ""$type"": ""Newtonsoft.Json.Tests.Serialization.JsonSerializerTest+HasByteArray, Newtonsoft.Json.Tests"",
+  ""EncryptedPassword"": {
+    ""$type"": ""System.Byte[], mscorlib"",
+    ""$value"": ""cGFzc3dvcmQ=""
+  },
+  ""Pie"": null
+}";
+            HasByteArray value = JsonConvert.DeserializeObject<HasByteArray>(json, new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Objects
+            });
+
+            Assert.IsNotNull(value.EncryptedPassword);
+            CollectionAssert.AreEquivalent(Convert.FromBase64String("cGFzc3dvcmQ="), value.EncryptedPassword);
+        }
+
         [Test]
         public void SerializeInheritanceHierarchyWithDuplicateProperty()
         {
@@ -6960,7 +7183,7 @@ Path '', line 1, position 1.");
 }";
 
                 JsonConvert.DeserializeObject<TestObjects.MyClass>(json);
-            }, "Error reading integer. Unexpected token: Boolean. Path 'PreProperty', line 2, position 21.");
+            }, "Unexpected character encountered while parsing value: t. Path 'PreProperty', line 2, position 18.");
         }
 
         [Test]
@@ -8458,7 +8681,7 @@ Path '', line 1, position 1.");
         }
 #endif
 
-#if !(NET20 || NET35 || PORTABLE40)
+#if !(NET20 || NET35)
         [Test]
         public void HashSetInterface()
         {
@@ -9194,6 +9417,41 @@ Path '', line 1, position 1.");
             JsonConvert.DeserializeObject<ConstantTestClass>(json);
         }
 #endif
+
+        [Test]
+        public void SerializeObjectWithEvent()
+        {
+            MyObservableObject o = new MyObservableObject
+            {
+                TestString = "Test string"
+            };
+
+            string json = JsonConvert.SerializeObject(o, Formatting.Indented);
+            StringAssert.AreEqual(@"{
+  ""PropertyChanged"": null,
+  ""TestString"": ""Test string""
+}", json);
+
+            MyObservableObject o2 = JsonConvert.DeserializeObject<MyObservableObject>(json);
+            Assert.AreEqual("Test string", o2.TestString);
+        }
+
+        public class MyObservableObject : ObservableObject
+        {
+            public new string PropertyChanged;
+
+            public string TestString { get; set; }
+        }
+
+        public class ObservableObject : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            protected PropertyChangedEventHandler PropertyChangedHandler
+            {
+                get { return PropertyChanged; }
+            }
+        }
 
         [Test]
         public void ParameterizedConstructorWithBasePrivateProperties()

@@ -235,6 +235,11 @@ namespace Newtonsoft.Json.Linq
             throw new JsonException("Cannot add or remove items from {0}.".FormatWith(CultureInfo.InvariantCulture, typeof(JProperty)));
         }
 
+        internal override int IndexOfItem(JToken item)
+        {
+            return _content.IndexOf(item);
+        }
+
         internal override void InsertItem(int index, JToken item, bool skipParentCheck)
         {
             // don't add comments to JProperty
@@ -299,7 +304,7 @@ namespace Newtonsoft.Json.Linq
         internal JProperty(string name)
         {
             // called from JTokenWriter
-            ValidationUtils.ArgumentNotNull(name, "name");
+            ValidationUtils.ArgumentNotNull(name, nameof(name));
 
             _name = name;
         }
@@ -321,7 +326,7 @@ namespace Newtonsoft.Json.Linq
         /// <param name="content">The property content.</param>
         public JProperty(string name, object content)
         {
-            ValidationUtils.ArgumentNotNull(name, "name");
+            ValidationUtils.ArgumentNotNull(name, nameof(name));
 
             _name = name;
 
@@ -382,10 +387,7 @@ namespace Newtonsoft.Json.Linq
                 }
             }
 
-            while (reader.TokenType == JsonToken.Comment)
-            {
-                reader.Read();
-            }
+            reader.MoveToContent();
 
             if (reader.TokenType != JsonToken.PropertyName)
             {

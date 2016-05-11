@@ -49,6 +49,7 @@ using NUnit.Framework;
 using Newtonsoft.Json;
 using System.IO;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Utilities;
 
 namespace Newtonsoft.Json.Tests
@@ -99,6 +100,69 @@ namespace Newtonsoft.Json.Tests
             Assert.AreEqual(0, arrayPool.UsedArrays.Count);
             Assert.AreEqual(3, arrayPool.FreeArrays.Count);
         }
+
+        [Test]
+        public void BufferTest_WithError()
+        {
+            JsonTextReaderTest.FakeArrayPool arrayPool = new JsonTextReaderTest.FakeArrayPool();
+
+            StringWriter sw = new StringWriter(CultureInfo.InvariantCulture);
+
+            try
+            {
+                // dispose will free used buffers
+                using (JsonTextWriter writer = new JsonTextWriter(sw))
+                {
+                    writer.ArrayPool = arrayPool;
+
+                    writer.WriteStartObject();
+
+                    writer.WritePropertyName("Prop1");
+                    writer.WriteValue(new DateTime(2000, 12, 12, 12, 12, 12, DateTimeKind.Utc));
+
+                    writer.WritePropertyName("Prop2");
+                    writer.WriteValue("This is an escaped \n string!");
+
+                    writer.WriteValue("Error!");
+                }
+
+
+                Assert.Fail();
+            }
+            catch
+            {
+            }
+
+            Assert.AreEqual(0, arrayPool.UsedArrays.Count);
+            Assert.AreEqual(1, arrayPool.FreeArrays.Count);
+        }
+
+#if !(NET20 || NET35 || NET40 || NETFX_CORE || PORTABLE || PORTABLE40 || DNXCORE50)
+        [Test]
+        public void BufferErroringWithInvalidSize()
+        {
+            JObject o = new JObject
+            {
+                {"BodyHtml", "<h3>Title!</h3>" + Environment.NewLine + new string(' ', 100) + "<p>Content!</p>"}
+            };
+
+            JsonArrayPool arrayPool = new JsonArrayPool();
+
+            StringWriter sw = new StringWriter();
+            using (JsonTextWriter writer = new JsonTextWriter(sw))
+            {
+                writer.ArrayPool = arrayPool;
+
+                o.WriteTo(writer);
+            }
+
+            string result = o.ToString();
+
+            Assert.AreEqual(@"{
+  ""BodyHtml"": ""<h3>Title!</h3>\r\n                                                                                                    <p>Content!</p>""
+}", result);
+        }
+#endif
 
         [Test]
         public void NewLine()
@@ -898,6 +962,29 @@ Parameter name: value");
         }
 
         [Test]
+        public void WriteTokenNullCheck()
+        {
+            using (JsonWriter jsonWriter = new JsonTextWriter(new StringWriter()))
+            {
+                ExceptionAssert.Throws<ArgumentNullException>(() => { jsonWriter.WriteToken(null); });
+                ExceptionAssert.Throws<ArgumentNullException>(() => { jsonWriter.WriteToken(null, true); });
+            }
+        }
+
+        [Test]
+        public void TokenTypeOutOfRange()
+        {
+            using (JsonWriter jsonWriter = new JsonTextWriter(new StringWriter()))
+            {
+                ArgumentOutOfRangeException ex = ExceptionAssert.Throws<ArgumentOutOfRangeException>(() => jsonWriter.WriteToken((JsonToken)int.MinValue));
+                Assert.AreEqual("token", ex.ParamName);
+
+                ex = ExceptionAssert.Throws<ArgumentOutOfRangeException>(() => jsonWriter.WriteToken((JsonToken)int.MinValue, "test"));
+                Assert.AreEqual("token", ex.ParamName);
+            }
+        }
+
+        [Test]
         public void BadWriteEndArray()
         {
             ExceptionAssert.Throws<JsonWriterException>(() =>
@@ -1552,6 +1639,15 @@ null//comment
   ]/*comment*/
 }/*comment *//*comment 1 */", sw.ToString());
         }
+
+        [Test]
+        public void DisposeSupressesFinalization()
+        {
+            UnmanagedResourceFakingJsonWriter.CreateAndDispose();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            Assert.AreEqual(1, UnmanagedResourceFakingJsonWriter.DisposalCalls);
+        }
     }
 
     public class CustomJsonTextWriter : JsonTextWriter
@@ -1720,4 +1816,35 @@ null//comment
         }
     }
 #endif
+
+    public class UnmanagedResourceFakingJsonWriter : JsonWriter
+    {
+        public static int DisposalCalls;
+
+        public static void CreateAndDispose()
+        {
+            ((IDisposable)new UnmanagedResourceFakingJsonWriter()).Dispose();
+        }
+
+        public UnmanagedResourceFakingJsonWriter()
+        {
+            DisposalCalls = 0;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            ++DisposalCalls;
+        }
+
+        ~UnmanagedResourceFakingJsonWriter()
+        {
+            Dispose(false);
+        }
+
+        public override void Flush()
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
